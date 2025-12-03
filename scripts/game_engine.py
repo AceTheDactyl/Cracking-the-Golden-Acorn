@@ -39,6 +39,17 @@ except ImportError:
     TRIAD_ENABLED = False
     print("Warning: TRIAD substrate not available, running in legacy mode")
 
+# Import Free Energy substrate for Ultimate mechanics
+try:
+    from free_energy_substrate import (
+        FreeEnergyIntegration, UltimateType, ColorChannel,
+        Z_CRITICAL as FE_Z_CRITICAL, BOOST_MULTIPLIER, DEBUFF_MULTIPLIER
+    )
+    FREE_ENERGY_ENABLED = True
+except ImportError:
+    FREE_ENERGY_ENABLED = False
+    print("Warning: Free Energy substrate not available, Ultimate mechanics disabled")
+
 # Import from generator if available, otherwise define locally
 try:
     from holographic_card_generator import (
@@ -403,11 +414,12 @@ class ScoreBreakdown:
     faction: int = 0
     triad: int = 0                    # TRIAD synergy bonus
     triad_multiplier: float = 1.0     # Coherence-based multiplier
+    ultimate_multiplier: float = 1.0  # Ultimate boost/debuff modifier
 
     @property
     def total(self) -> int:
         subtotal = self.base + self.cluster + self.chain + self.resonance + self.faction + self.triad
-        return int(subtotal * self.triad_multiplier)
+        return int(subtotal * self.triad_multiplier * self.ultimate_multiplier)
 
 
 def calculate_full_score(cards: List[Card], faction: 'Faction',
@@ -684,6 +696,10 @@ class GameState:
     triad_integration: 'TriadGameIntegration' = None
     triad_events: List[Dict] = None  # Events from TRIAD phase transitions
 
+    # Free Energy / Ultimate integration
+    free_energy_integration: 'FreeEnergyIntegration' = None
+    ultimate_events: List[Dict] = None  # Events from Ultimate mechanics
+
     # Event handlers
     _event_handlers: Dict[GameEvent, List[Callable]] = None
 
@@ -696,9 +712,14 @@ class GameState:
             self._event_handlers = defaultdict(list)
         if self.triad_events is None:
             self.triad_events = []
+        if self.ultimate_events is None:
+            self.ultimate_events = []
         # Initialize TRIAD integration if available
         if TRIAD_ENABLED and self.triad_integration is None:
             self.triad_integration = TriadGameIntegration()
+        # Initialize Free Energy integration if available
+        if FREE_ENERGY_ENABLED and self.free_energy_integration is None:
+            self.free_energy_integration = FreeEnergyIntegration()
 
     @property
     def triad_state(self) -> Optional['TriadState']:
@@ -706,7 +727,22 @@ class GameState:
         if self.triad_integration:
             return self.triad_integration.get_triad_state()
         return None
-    
+
+    @property
+    def free_energy_state(self) -> Optional[Dict]:
+        """Get current Free Energy state for current player if available."""
+        if self.free_energy_integration:
+            return self.free_energy_integration.get_state(self.current_player.name)
+        return None
+
+    @property
+    def ultimate_ready(self) -> bool:
+        """Check if current player has Ultimate ready."""
+        if self.free_energy_integration:
+            state = self.free_energy_integration.get_state(self.current_player.name)
+            return state.get('ultimate_ready', False)
+        return False
+
     @property
     def current_player(self) -> Player:
         return self.players[self.current_player_idx]
@@ -909,15 +945,42 @@ class GameEngine:
                             **event_data,
                         })
 
+        # Update Free Energy state with played cards
+        if FREE_ENERGY_ENABLED and self.state.free_energy_integration:
+            fe_events = self.state.free_energy_integration.on_cards_played(
+                player.name, cards
+            )
+
+            # Store and emit Ultimate events
+            if fe_events:
+                self.state.ultimate_events.extend([
+                    {'turn': self.state.turn_number, 'player': player.name, **fe_events}
+                ])
+
+                # Emit special events for phase transitions and Ultimate ready
+                if 'phase_transition' in fe_events:
+                    self.state.emit_event(GameEvent.ABILITY_ACTIVATED, {
+                        'type': 'phase_transition',
+                        'z_level': fe_events['phase_transition'].get('z_level'),
+                    })
+
+                if 'ultimate_ready' in fe_events:
+                    self.state.emit_event(GameEvent.ABILITY_ACTIVATED, {
+                        'type': 'ultimate_ready',
+                        'player': player.name,
+                        'charge': fe_events['ultimate_ready'].get('charge'),
+                    })
+
         return True
     
     def calculate_score(self) -> ScoreBreakdown:
-        """Calculate score for current formation with TRIAD bonuses."""
+        """Calculate score for current formation with TRIAD and Ultimate bonuses."""
         if self.state.phase != TurnPhase.RESONANCE:
             raise ValueError("Not in resonance phase")
 
         cards = self.state.current_formation
         player = self.state.current_player
+        opponent = self.state.opponent
 
         # Calculate score with TRIAD state
         breakdown = calculate_full_score(
@@ -926,7 +989,6 @@ class GameEngine:
 
         # Apply TRIAD cross-matchup modifier if opponent has cards in play
         if TRIAD_ENABLED and self.state.triad_integration:
-            opponent = self.state.opponent
             opponent_cards = opponent.hand[:3] if opponent.hand else []  # Approximate
             cross_modifier = calculate_cross_triad_modifier(cards, opponent_cards)
             if cross_modifier != 1.0:
@@ -935,6 +997,20 @@ class GameEngine:
                 adjusted_total = int(original_total * cross_modifier)
                 # Store modifier info for display
                 breakdown.triad_multiplier *= cross_modifier
+
+        # Apply Ultimate modifiers (boost/debuff)
+        if FREE_ENERGY_ENABLED and self.state.free_energy_integration:
+            ultimate_multiplier = 1.0
+            for card in cards:
+                # Get modifier for this card's suit (considers boosts and debuffs)
+                card_modifier = self.state.free_energy_integration.get_score_modifier(
+                    player.name, card.suit, opponent.name
+                )
+                # Average the modifier across all cards
+                ultimate_multiplier *= card_modifier ** (1.0 / len(cards))
+
+            if ultimate_multiplier != 1.0:
+                breakdown.ultimate_multiplier = ultimate_multiplier
 
         # Record resonance for Hearts drain
         player.last_resonance_bonus = breakdown.resonance
@@ -953,6 +1029,7 @@ class GameEngine:
                 'faction': breakdown.faction,
                 'triad': breakdown.triad,
                 'triad_multiplier': breakdown.triad_multiplier,
+                'ultimate_multiplier': breakdown.ultimate_multiplier,
                 'total': breakdown.total,
             },
             'new_score': player.score,
@@ -963,6 +1040,14 @@ class GameEngine:
             event_data['triad_state'] = {
                 'dominant': self.state.triad_state.dominant_triad.value if self.state.triad_state.dominant_triad else None,
                 'global_coherence': self.state.triad_state.global_coherence,
+            }
+
+        # Add Free Energy state info if available
+        if self.state.free_energy_state:
+            event_data['free_energy_state'] = {
+                'z_level': self.state.free_energy_state.get('z_level'),
+                'ultimate_charge': self.state.free_energy_state.get('ultimate_charge'),
+                'ultimate_ready': self.state.free_energy_state.get('ultimate_ready'),
             }
 
         self.state.emit_event(GameEvent.SCORE_CHANGED, event_data)
@@ -1131,6 +1216,83 @@ class GameEngine:
             },
         }
 
+    def activate_ultimate(
+        self,
+        ultimate_type: str,  # "boost" or "debuff"
+        target_suit: str     # "S", "H", "D", or "C"
+    ) -> Tuple[bool, str]:
+        """
+        Activate Ultimate ability for current player.
+
+        Args:
+            ultimate_type: "boost" for +50% to color, "debuff" for -30% to opponent color
+            target_suit: The suit/color to target (S, H, D, C)
+
+        Returns:
+            (success, message)
+        """
+        if not FREE_ENERGY_ENABLED or not self.state.free_energy_integration:
+            return False, "Ultimate system not available"
+
+        player = self.state.current_player
+
+        success, msg = self.state.free_energy_integration.activate_ultimate(
+            player.name, ultimate_type, target_suit
+        )
+
+        if success:
+            self.state.emit_event(GameEvent.ABILITY_ACTIVATED, {
+                'type': 'ultimate',
+                'player': player.name,
+                'ultimate_type': ultimate_type,
+                'target_suit': target_suit,
+            })
+
+        return success, msg
+
+    def get_ultimate_summary(self) -> Dict:
+        """Get summary of current Ultimate/Free Energy state for display."""
+        if not FREE_ENERGY_ENABLED or not self.state.free_energy_integration:
+            return {'enabled': False}
+
+        player = self.state.current_player
+        ui_data = self.state.free_energy_integration.get_ui_data(player.name)
+
+        return {
+            'enabled': True,
+            'z_level': ui_data['z_level'],
+            'z_critical': ui_data['z_critical'],
+            'is_critical': ui_data['is_critical'],
+            'ultimate_charge': ui_data['ultimate_charge'],
+            'ultimate_ready': ui_data['ultimate_ready'],
+            'coherence': ui_data['coherence'],
+            'free_energy': ui_data['free_energy'],
+            'active_boost': ui_data['active_boost'],
+            'active_debuff': ui_data['active_debuff'],
+            'boost_turns': ui_data['boost_turns'],
+            'debuff_turns': ui_data['debuff_turns'],
+        }
+
+    def get_ultimate_options(self) -> List[Dict]:
+        """Get available Ultimate abilities if ready."""
+        if not self.state.ultimate_ready:
+            return []
+
+        return [
+            {
+                'type': 'boost',
+                'name': 'Color Boost',
+                'description': '+50% score for chosen color for 2 turns',
+                'targets': ['S', 'H', 'D', 'C'],
+            },
+            {
+                'type': 'debuff',
+                'name': 'Color Debuff',
+                'description': '-30% score for opponent\'s chosen color for 2 turns',
+                'targets': ['S', 'H', 'D', 'C'],
+            },
+        ]
+
 
 # =============================================================================
 # CLI INTERFACE
@@ -1159,6 +1321,7 @@ def main():
     print("=" * 60)
     print(f"Player 1 ({args.faction1}) vs Player 2 ({args.faction2})")
     print(f"TRIAD System: {'ENABLED' if TRIAD_ENABLED else 'DISABLED'}")
+    print(f"Ultimate System: {'ENABLED' if FREE_ENERGY_ENABLED else 'DISABLED'}")
     print("-" * 60)
 
     # Simple auto-play loop
@@ -1183,6 +1346,21 @@ def main():
                     burst = ' [BURST READY]' if t['burst_ready'] else ''
                     print(f"  {name.upper()}: R={t['coherence']:.2f} z={t['z_level']:.2f} "
                           f"charge={t['charge']:.0%} ({status}){burst}")
+
+        # Show Ultimate state if verbose
+        if args.verbose and FREE_ENERGY_ENABLED:
+            ultimate_summary = engine.get_ultimate_summary()
+            if ultimate_summary.get('enabled'):
+                print(f"\nUltimate State:")
+                critical_marker = ' [CRITICAL]' if ultimate_summary['is_critical'] else ''
+                ready_marker = ' >>> ULTIMATE READY <<<' if ultimate_summary['ultimate_ready'] else ''
+                print(f"  Z-Level: {ultimate_summary['z_level']}% (critical: {ultimate_summary['z_critical']}%){critical_marker}")
+                print(f"  Charge: {ultimate_summary['ultimate_charge']}%{ready_marker}")
+                print(f"  Coherence: {ultimate_summary['coherence']}%")
+                if ultimate_summary['active_boost']:
+                    print(f"  ACTIVE BOOST: {ultimate_summary['active_boost']} (+50%) [{ultimate_summary['boost_turns']} turns]")
+                if ultimate_summary['active_debuff']:
+                    print(f"  ACTIVE DEBUFF: {ultimate_summary['active_debuff']} (-30%) [{ultimate_summary['debuff_turns']} turns]")
 
         # Draw phase
         if engine.state.phase == TurnPhase.DRAW:
@@ -1242,6 +1420,8 @@ def main():
         if TRIAD_ENABLED:
             print(f"  TRIAD: {breakdown.triad}")
             print(f"  TRIAD Multiplier: {breakdown.triad_multiplier:.2f}x")
+        if FREE_ENERGY_ENABLED and breakdown.ultimate_multiplier != 1.0:
+            print(f"  Ultimate Multiplier: {breakdown.ultimate_multiplier:.2f}x")
         print(f"  TOTAL: {breakdown.total}")
 
         # Advance to Discard

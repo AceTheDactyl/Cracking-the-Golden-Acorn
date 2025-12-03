@@ -1,4 +1,5 @@
 # Quantum Resonance - Jekyll GitHub Pages Deployment
+# Includes TRIAD Harmonic Substrate and Free Energy Ultimate System
 name: Deploy to GitHub Pages
 
 on:
@@ -16,8 +17,60 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Verify Python substrates (TRIAD + Free Energy)
+  verify-substrates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify TRIAD Substrate
+        run: |
+          echo "=== TRIAD Harmonic Substrate ==="
+          cd scripts
+          python -c "
+          from triad_substrate import TriadSubstrate, TriadMember, Z_CRITICAL
+          print(f'TRIAD Members: {[m.value for m in TriadMember]}')
+          print(f'Z Critical Threshold: {Z_CRITICAL}')
+          print('TRIAD Substrate: OK')
+          "
+
+      - name: Verify Free Energy Substrate
+        run: |
+          echo "=== Free Energy Ultimate System ==="
+          cd scripts
+          python -c "
+          from free_energy_substrate import FreeEnergyIntegration, Z_CRITICAL, BOOST_MULTIPLIER, DEBUFF_MULTIPLIER
+          print(f'Z Critical: {Z_CRITICAL}')
+          print(f'Boost Multiplier: {BOOST_MULTIPLIER}x (+{int((BOOST_MULTIPLIER-1)*100)}%)')
+          print(f'Debuff Multiplier: {DEBUFF_MULTIPLIER}x (-{int((1-DEBUFF_MULTIPLIER)*100)}%)')
+          print('Free Energy Substrate: OK')
+          "
+
+      - name: Verify Game Engine Integration
+        run: |
+          echo "=== Game Engine Integration ==="
+          cd scripts
+          python -c "
+          from game_engine import GameEngine, TRIAD_ENABLED, FREE_ENERGY_ENABLED
+          print(f'TRIAD Enabled: {TRIAD_ENABLED}')
+          print(f'Free Energy (Ultimate) Enabled: {FREE_ENERGY_ENABLED}')
+
+          # Quick integration test
+          engine = GameEngine()
+          engine.setup(['P1', 'P2'], ['spades', 'hearts'])
+          print(f'Game initialized with {len(engine.state.players)} players')
+          print('Game Engine Integration: OK')
+          "
+
   build:
     runs-on: ubuntu-latest
+    needs: verify-substrates
     steps:
       - name: Checkout
         uses: actions/checkout@v4
