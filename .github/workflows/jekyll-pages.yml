@@ -1,5 +1,6 @@
 # Quantum Resonance - Jekyll GitHub Pages Deployment
-# Includes TRIAD Harmonic Substrate and Free Energy Ultimate System
+# Includes TRIAD Harmonic Substrate, Free Energy Ultimate System,
+# and Grassmannian APL Semantics Substrate
 name: Deploy to GitHub Pages
 
 on:
@@ -52,14 +53,46 @@ jobs:
           print('Free Energy Substrate: OK')
           "
 
+      - name: Verify Grassmannian Substrate
+        run: |
+          echo "=== Grassmannian APL Substrate ==="
+          cd scripts
+          python -c "
+          from grassmannian import (
+              GrassmannManifold, GrassmannPoint,
+              APLGrassmannBridge, APLPhase,
+              GrassmannAPLOperators, APLOperator,
+              z_from_points, Z_CRITICAL
+          )
+          from grassmannian.narrative import GrassmannNarrativeEngine
+
+          # Test manifold
+          manifold = GrassmannManifold(9, 3)
+          print(f'Manifold: Gr({manifold.n},{manifold.k}), dim={manifold.dimension}')
+
+          # Test bridge
+          bridge = APLGrassmannBridge(9, 3)
+          print(f'APL Phases: {[p.name for p in APLPhase]}')
+
+          # Test operators
+          ops = GrassmannAPLOperators(9, 3)
+          print(f'APL Operators: {[op.value for op in APLOperator]}')
+
+          # Test narrative engine
+          engine = GrassmannNarrativeEngine(9, 3)
+          print(f'Narrative Engine: Z_CRITICAL={Z_CRITICAL}')
+          print('Grassmannian Substrate: OK')
+          "
+
       - name: Verify Game Engine Integration
         run: |
           echo "=== Game Engine Integration ==="
           cd scripts
           python -c "
-          from game_engine import GameEngine, TRIAD_ENABLED, FREE_ENERGY_ENABLED
+          from game_engine import GameEngine, TRIAD_ENABLED, FREE_ENERGY_ENABLED, GRASSMANNIAN_ENABLED
           print(f'TRIAD Enabled: {TRIAD_ENABLED}')
           print(f'Free Energy (Ultimate) Enabled: {FREE_ENERGY_ENABLED}')
+          print(f'Grassmannian (APL) Enabled: {GRASSMANNIAN_ENABLED}')
 
           # Quick integration test
           engine = GameEngine()

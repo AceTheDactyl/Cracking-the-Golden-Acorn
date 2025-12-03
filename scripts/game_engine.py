@@ -50,6 +50,20 @@ except ImportError:
     FREE_ENERGY_ENABLED = False
     print("Warning: Free Energy substrate not available, Ultimate mechanics disabled")
 
+# Import Grassmannian substrate for APL semantics
+try:
+    from grassmannian import (
+        GrassmannManifold, GrassmannPoint,
+        APLGrassmannBridge, APLPhase, APLState,
+        GrassmannAPLOperators, APLOperator,
+        z_from_points, Z_CRITICAL as GR_Z_CRITICAL
+    )
+    from grassmannian.narrative import GrassmannNarrativeEngine, NarrativeGameIntegration
+    GRASSMANNIAN_ENABLED = True
+except ImportError:
+    GRASSMANNIAN_ENABLED = False
+    print("Warning: Grassmannian substrate not available, APL semantics disabled")
+
 # Import from generator if available, otherwise define locally
 try:
     from holographic_card_generator import (
@@ -700,6 +714,10 @@ class GameState:
     free_energy_integration: 'FreeEnergyIntegration' = None
     ultimate_events: List[Dict] = None  # Events from Ultimate mechanics
 
+    # Grassmannian / APL semantics integration
+    grassmannian_integration: 'NarrativeGameIntegration' = None
+    narrative_events: List[Dict] = None  # Events from narrative engine
+
     # Event handlers
     _event_handlers: Dict[GameEvent, List[Callable]] = None
 
@@ -714,12 +732,18 @@ class GameState:
             self.triad_events = []
         if self.ultimate_events is None:
             self.ultimate_events = []
+        if self.narrative_events is None:
+            self.narrative_events = []
         # Initialize TRIAD integration if available
         if TRIAD_ENABLED and self.triad_integration is None:
             self.triad_integration = TriadGameIntegration()
         # Initialize Free Energy integration if available
         if FREE_ENERGY_ENABLED and self.free_energy_integration is None:
             self.free_energy_integration = FreeEnergyIntegration()
+        # Initialize Grassmannian/narrative integration if available
+        if GRASSMANNIAN_ENABLED and self.grassmannian_integration is None:
+            narrative_engine = GrassmannNarrativeEngine(n=9, k=3, enforce_n0=True)
+            self.grassmannian_integration = NarrativeGameIntegration(narrative_engine)
 
     @property
     def triad_state(self) -> Optional['TriadState']:
@@ -742,6 +766,20 @@ class GameState:
             state = self.free_energy_integration.get_state(self.current_player.name)
             return state.get('ultimate_ready', False)
         return False
+
+    @property
+    def narrative_state(self) -> Optional[Dict]:
+        """Get current narrative/APL state if available."""
+        if self.grassmannian_integration:
+            return self.grassmannian_integration.get_narrative_summary()
+        return None
+
+    @property
+    def apl_phase(self) -> Optional[str]:
+        """Get current APL consciousness phase."""
+        if self.grassmannian_integration and self.grassmannian_integration.engine.state:
+            return self.grassmannian_integration.engine.state.apl_state.phase.name
+        return None
 
     @property
     def current_player(self) -> Player:
@@ -856,6 +894,8 @@ class GameEngine:
         self.state.emit_event(GameEvent.GAME_STARTED, {
             'players': [p.name for p in players],
             'triad_enabled': TRIAD_ENABLED,
+            'free_energy_enabled': FREE_ENERGY_ENABLED,
+            'grassmannian_enabled': GRASSMANNIAN_ENABLED,
         })
     
     def _generate_default_deck(self, faction: Faction) -> List[Card]:
@@ -971,6 +1011,30 @@ class GameEngine:
                         'charge': fe_events['ultimate_ready'].get('charge'),
                     })
 
+        # Update Grassmannian/narrative state
+        if GRASSMANNIAN_ENABLED and self.state.grassmannian_integration:
+            narrative_beat = self.state.grassmannian_integration.on_turn_start(self.state.turn_number)
+
+            if narrative_beat:
+                self.state.narrative_events.append({
+                    'turn': self.state.turn_number,
+                    'beat_index': narrative_beat.index,
+                    'operator': narrative_beat.operator.value,
+                    'z_level': narrative_beat.z_level,
+                    'apl_phase': narrative_beat.apl_phase.name,
+                    'narrative_phase': narrative_beat.narrative_phase.name,
+                    'is_transition': narrative_beat.is_transition,
+                })
+
+                # Emit event for phase transitions
+                if narrative_beat.is_transition:
+                    self.state.emit_event(GameEvent.ABILITY_ACTIVATED, {
+                        'type': 'narrative_transition',
+                        'player': player.name,
+                        'apl_phase': narrative_beat.apl_phase.name,
+                        'z_level': narrative_beat.z_level,
+                    })
+
         return True
     
     def calculate_score(self) -> ScoreBreakdown:
@@ -1049,6 +1113,17 @@ class GameEngine:
                 'ultimate_charge': self.state.free_energy_state.get('ultimate_charge'),
                 'ultimate_ready': self.state.free_energy_state.get('ultimate_ready'),
             }
+
+        # Add Grassmannian/narrative state info and bonus
+        if GRASSMANNIAN_ENABLED and self.state.grassmannian_integration:
+            narrative_bonus = self.state.grassmannian_integration.get_narrative_bonus(self.state.turn_number)
+            if narrative_bonus > 0:
+                player.score += narrative_bonus
+                event_data['narrative_bonus'] = narrative_bonus
+
+            narrative_state = self.state.narrative_state
+            if narrative_state:
+                event_data['narrative_state'] = narrative_state
 
         self.state.emit_event(GameEvent.SCORE_CHANGED, event_data)
 
@@ -1293,6 +1368,22 @@ class GameEngine:
             },
         ]
 
+    def get_narrative_summary(self) -> Dict:
+        """Get summary of current narrative/APL state for display."""
+        if not GRASSMANNIAN_ENABLED or not self.state.grassmannian_integration:
+            return {'enabled': False}
+
+        summary = self.state.grassmannian_integration.get_narrative_summary()
+        summary['enabled'] = True
+        return summary
+
+    def get_narrative_arc(self) -> Dict:
+        """Get full narrative arc analysis."""
+        if not GRASSMANNIAN_ENABLED or not self.state.grassmannian_integration:
+            return {'enabled': False}
+
+        return self.state.grassmannian_integration.engine.get_narrative_arc()
+
 
 # =============================================================================
 # CLI INTERFACE
@@ -1317,11 +1408,12 @@ def main():
     )
 
     print("=" * 60)
-    print("QUANTUM RESONANCE - TRIAD HARMONIC SUBSTRATE")
+    print("QUANTUM RESONANCE - UNIFIED SUBSTRATE")
     print("=" * 60)
     print(f"Player 1 ({args.faction1}) vs Player 2 ({args.faction2})")
     print(f"TRIAD System: {'ENABLED' if TRIAD_ENABLED else 'DISABLED'}")
     print(f"Ultimate System: {'ENABLED' if FREE_ENERGY_ENABLED else 'DISABLED'}")
+    print(f"Grassmannian/APL: {'ENABLED' if GRASSMANNIAN_ENABLED else 'DISABLED'}")
     print("-" * 60)
 
     # Simple auto-play loop
@@ -1361,6 +1453,19 @@ def main():
                     print(f"  ACTIVE BOOST: {ultimate_summary['active_boost']} (+50%) [{ultimate_summary['boost_turns']} turns]")
                 if ultimate_summary['active_debuff']:
                     print(f"  ACTIVE DEBUFF: {ultimate_summary['active_debuff']} (-30%) [{ultimate_summary['debuff_turns']} turns]")
+
+        # Show Narrative/APL state if verbose
+        if args.verbose and GRASSMANNIAN_ENABLED:
+            narrative_summary = engine.get_narrative_summary()
+            if narrative_summary.get('enabled') and narrative_summary.get('active'):
+                print(f"\nNarrative State:")
+                print(f"  Beat: {narrative_summary.get('beat', 0)}/32")
+                print(f"  Narrative Phase: {narrative_summary.get('narrative_phase', 'SETUP')}")
+                print(f"  APL Phase: {narrative_summary.get('apl_phase', 'VOID')}")
+                print(f"  Z-Level: {narrative_summary.get('z_level', 0):.3f}")
+                critical = ' [CRITICAL]' if narrative_summary.get('is_critical') else ''
+                print(f"  Progress: {narrative_summary.get('progress', 0):.1f}%{critical}")
+                print(f"  Transitions: {narrative_summary.get('transitions', 0)}")
 
         # Draw phase
         if engine.state.phase == TurnPhase.DRAW:
