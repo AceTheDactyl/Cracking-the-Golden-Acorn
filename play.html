@@ -545,6 +545,251 @@ permalink: /play/
     font-size: 2rem;
   }
 
+  /* Ultimate System Styles */
+  .ultimate-zone {
+    background: linear-gradient(135deg, rgba(153, 102, 255, 0.1), rgba(255, 51, 102, 0.1));
+    border: 1px solid rgba(153, 102, 255, 0.3);
+    margin-top: 1rem;
+  }
+
+  .z-meter {
+    margin-bottom: 1rem;
+  }
+
+  .z-meter-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+  }
+
+  .z-meter-bar {
+    height: 12px;
+    background: var(--bg-dark);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .z-meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4a148c, #9966ff);
+    transition: width 0.3s ease;
+    position: relative;
+  }
+
+  .z-meter-fill.critical {
+    background: linear-gradient(90deg, #ff3366, #ff9933);
+    animation: pulse-glow 1s infinite;
+  }
+
+  .z-critical-marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--accent);
+    z-index: 1;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 10px rgba(255, 51, 102, 0.5); }
+    50% { box-shadow: 0 0 20px rgba(255, 51, 102, 0.8); }
+  }
+
+  .ultimate-charge {
+    margin-bottom: 1rem;
+  }
+
+  .ultimate-charge-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .ultimate-charge-label .status {
+    font-weight: bold;
+  }
+
+  .ultimate-charge-label .status.ready {
+    color: var(--diamonds);
+    animation: blink 0.8s infinite;
+  }
+
+  @keyframes blink {
+    0%, 50%, 100% { opacity: 1; }
+    25%, 75% { opacity: 0.5; }
+  }
+
+  .ultimate-charge-bar {
+    height: 16px;
+    background: var(--bg-dark);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+  }
+
+  .ultimate-charge-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6600, #ffd700);
+    transition: width 0.3s ease;
+  }
+
+  .ultimate-charge-fill.full {
+    background: linear-gradient(90deg, #ffd700, #ffffff);
+    animation: shine 1.5s infinite;
+  }
+
+  @keyframes shine {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+  }
+
+  .ultimate-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .ultimate-btn {
+    flex: 1;
+    padding: 0.75rem 0.5rem;
+    border: 2px solid;
+    border-radius: 8px;
+    background: var(--bg-dark);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.8rem;
+    font-weight: bold;
+  }
+
+  .ultimate-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .ultimate-btn.boost {
+    border-color: var(--clubs);
+    color: var(--clubs);
+  }
+
+  .ultimate-btn.boost:hover:not(:disabled) {
+    background: rgba(51, 255, 102, 0.2);
+    box-shadow: 0 0 15px rgba(51, 255, 102, 0.4);
+  }
+
+  .ultimate-btn.debuff {
+    border-color: var(--hearts);
+    color: var(--hearts);
+  }
+
+  .ultimate-btn.debuff:hover:not(:disabled) {
+    background: rgba(255, 51, 102, 0.2);
+    box-shadow: 0 0 15px rgba(255, 51, 102, 0.4);
+  }
+
+  .active-effects {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .effect-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .effect-badge.boost {
+    background: rgba(51, 255, 102, 0.2);
+    color: var(--clubs);
+    border: 1px solid var(--clubs);
+  }
+
+  .effect-badge.debuff {
+    background: rgba(255, 51, 102, 0.2);
+    color: var(--hearts);
+    border: 1px solid var(--hearts);
+  }
+
+  .color-select-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+  }
+
+  .color-select-modal.hidden {
+    display: none;
+  }
+
+  .color-select-content {
+    background: var(--bg-card);
+    padding: 2rem;
+    border-radius: 16px;
+    max-width: 400px;
+    text-align: center;
+    border: 2px solid var(--accent);
+  }
+
+  .color-select-content h3 {
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  .color-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .color-option {
+    padding: 1rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1.5rem;
+    background: var(--bg-dark);
+  }
+
+  .color-option:hover {
+    transform: scale(1.05);
+  }
+
+  .color-option.S { border: 2px solid var(--spades); }
+  .color-option.S:hover { box-shadow: 0 0 20px rgba(0, 212, 255, 0.5); }
+  .color-option.H { border: 2px solid var(--hearts); }
+  .color-option.H:hover { box-shadow: 0 0 20px rgba(255, 51, 102, 0.5); }
+  .color-option.D { border: 2px solid var(--diamonds); }
+  .color-option.D:hover { box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+  .color-option.C { border: 2px solid var(--clubs); }
+  .color-option.C:hover { box-shadow: 0 0 20px rgba(51, 255, 102, 0.5); }
+
+  .cancel-btn {
+    padding: 0.5rem 1.5rem;
+    background: var(--bg-lighter);
+    border: 1px solid var(--text-secondary);
+    border-radius: 6px;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+
   /* Phase Instructions */
   .phase-instructions {
     background: var(--bg-card);
@@ -734,6 +979,53 @@ permalink: /play/
         <div id="factionDisplay"></div>
       </div>
 
+      <!-- Ultimate System Zone -->
+      <div class="zone ultimate-zone" id="ultimateZone">
+        <h4>Ultimate Charge</h4>
+
+        <!-- Z-Level Meter -->
+        <div class="z-meter">
+          <div class="z-meter-label">
+            <span>Z-Level</span>
+            <span id="zLevelValue">50%</span>
+          </div>
+          <div class="z-meter-bar">
+            <div class="z-critical-marker" style="left: 85.8%;"></div>
+            <div class="z-meter-fill" id="zMeterFill" style="width: 50%;"></div>
+          </div>
+          <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.2rem;">
+            Critical threshold: 85.8%
+          </div>
+        </div>
+
+        <!-- Ultimate Charge Bar -->
+        <div class="ultimate-charge">
+          <div class="ultimate-charge-label">
+            <span>Ultimate</span>
+            <span class="status" id="ultimateStatus">Charging...</span>
+          </div>
+          <div class="ultimate-charge-bar">
+            <div class="ultimate-charge-fill" id="ultimateChargeFill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Ultimate Buttons (hidden until ready) -->
+        <div class="ultimate-buttons" id="ultimateButtons" style="display: none;">
+          <button class="ultimate-btn boost" onclick="showColorSelect('boost')" id="boostBtn">
+            ⚡ BOOST<br><small>+50%</small>
+          </button>
+          <button class="ultimate-btn debuff" onclick="showColorSelect('debuff')" id="debuffBtn">
+            💀 DEBUFF<br><small>-30%</small>
+          </button>
+        </div>
+
+        <!-- Active Effects -->
+        <div class="active-effects" id="activeEffects" style="display: none;">
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Active Effects:</div>
+          <div id="effectBadges"></div>
+        </div>
+      </div>
+
       <div class="zone" style="margin-top: 1rem;">
         <h4>Quick Tips</h4>
         <div id="tipDisplay" style="font-size: 0.85rem; color: var(--text-secondary);"></div>
@@ -794,6 +1086,33 @@ permalink: /play/
   </div>
 </div>
 
+<!-- Color Selection Modal for Ultimate -->
+<div class="color-select-modal hidden" id="colorSelectModal">
+  <div class="color-select-content">
+    <h3 id="colorSelectTitle">Select Target Color</h3>
+    <p id="colorSelectDesc" style="color: var(--text-secondary); font-size: 0.9rem;"></p>
+    <div class="color-options">
+      <div class="color-option S" onclick="selectUltimateTarget('S')">
+        <div>♠</div>
+        <div style="font-size: 0.7rem; color: var(--spades);">Spades</div>
+      </div>
+      <div class="color-option H" onclick="selectUltimateTarget('H')">
+        <div>♥</div>
+        <div style="font-size: 0.7rem; color: var(--hearts);">Hearts</div>
+      </div>
+      <div class="color-option D" onclick="selectUltimateTarget('D')">
+        <div>♦</div>
+        <div style="font-size: 0.7rem; color: var(--diamonds);">Diamonds</div>
+      </div>
+      <div class="color-option C" onclick="selectUltimateTarget('C')">
+        <div>♣</div>
+        <div style="font-size: 0.7rem; color: var(--clubs);">Clubs</div>
+      </div>
+    </div>
+    <button class="cancel-btn" onclick="cancelColorSelect()">Cancel</button>
+  </div>
+</div>
+
 <script>
 // Game State
 const gameState = {
@@ -809,7 +1128,17 @@ const gameState = {
   turnScore: 0,
   totalScore: 0,
   hasDrawn: false,
-  formationLocked: false
+  formationLocked: false,
+  // Ultimate System State
+  ultimate: {
+    zLevel: 50,           // 0-100%
+    zCritical: 85.8,      // Critical threshold
+    charge: 0,            // 0-100%
+    ready: false,
+    pendingType: null,    // 'boost' or 'debuff' when selecting color
+    activeBoost: null,    // {suit: 'S', turns: 2}
+    activeDebuff: null,   // {suit: 'H', turns: 2}
+  }
 };
 
 // Default deck configurations
@@ -1231,11 +1560,19 @@ function calculateScore() {
   // Faction bonus
   const factionBonus = calculateFactionBonus(deckConfig, cards);
 
+  // Apply Ultimate multiplier
+  const ultimateMultiplier = getUltimateMultiplier(cards);
+  const ultimateBonus = ultimateMultiplier > 1.0 ? Math.floor((baseScore + clusterBonus + chainBonus + resonanceBonus + factionBonus) * (ultimateMultiplier - 1)) : 0;
+
   // Total
-  const total = baseScore + clusterBonus + chainBonus + resonanceBonus + factionBonus;
+  const subtotal = baseScore + clusterBonus + chainBonus + resonanceBonus + factionBonus;
+  const total = Math.floor(subtotal * ultimateMultiplier);
 
   gameState.turnScore = total;
   gameState.totalScore += total;
+
+  // Update Ultimate state based on formation coherence
+  updateUltimateState(cards);
 
   // Update UI
   updateScoreValue('baseScore', baseScore);
@@ -1243,7 +1580,12 @@ function calculateScore() {
   updateScoreValue('chainScore', chainBonus);
   updateScoreValue('resonanceScore', resonanceBonus);
   updateScoreValue('factionScore', factionBonus);
-  updateScoreValue('totalTurnScore', total);
+  if (ultimateBonus > 0) {
+    // Add Ultimate bonus to display if applicable
+    document.getElementById('totalTurnScore').innerHTML = `+${total} <small style="color: var(--diamonds);">(⚡+${ultimateBonus})</small>`;
+  } else {
+    updateScoreValue('totalTurnScore', total);
+  }
 
   updateFieldUI();
 }
@@ -1356,6 +1698,9 @@ function resetGame() {
   document.getElementById('startBtn').textContent = 'Select a Deck to Begin';
 
   gameState.selectedDeck = null;
+
+  // Reset Ultimate state
+  resetUltimateState();
 }
 
 // Click on deck to draw
@@ -1364,4 +1709,221 @@ document.getElementById('deckPile')?.addEventListener('click', () => {
     drawCard();
   }
 });
+
+// =============================================================================
+// ULTIMATE SYSTEM
+// =============================================================================
+
+// Update Ultimate state based on cards played
+function updateUltimateState(cards) {
+  const u = gameState.ultimate;
+
+  // Calculate coherence from formation
+  const coherence = calculateFormationCoherence(cards);
+
+  // Z-level changes based on coherence
+  // High coherence pushes Z up, low coherence lets it decay
+  if (coherence > 0.7) {
+    u.zLevel = Math.min(100, u.zLevel + 8);
+  } else if (coherence > 0.5) {
+    u.zLevel = Math.min(100, u.zLevel + 4);
+  } else if (coherence > 0.3) {
+    u.zLevel = Math.min(100, u.zLevel + 1);
+  } else {
+    u.zLevel = Math.max(0, u.zLevel - 2);
+  }
+
+  // Charge builds when above critical threshold
+  if (u.zLevel >= u.zCritical) {
+    u.charge = Math.min(100, u.charge + 25);
+  } else {
+    u.charge = Math.max(0, u.charge - 5);
+  }
+
+  // Check if Ultimate is ready
+  u.ready = u.charge >= 100 && u.zLevel >= u.zCritical;
+
+  // Tick active effects
+  if (u.activeBoost) {
+    u.activeBoost.turns--;
+    if (u.activeBoost.turns <= 0) {
+      u.activeBoost = null;
+    }
+  }
+  if (u.activeDebuff) {
+    u.activeDebuff.turns--;
+    if (u.activeDebuff.turns <= 0) {
+      u.activeDebuff = null;
+    }
+  }
+
+  updateUltimateUI();
+}
+
+function calculateFormationCoherence(cards) {
+  if (cards.length < 2) return 0;
+
+  // Check for same-suit or same-rank patterns
+  const suits = cards.map(c => c.suit);
+  const values = cards.map(c => c.value);
+
+  // Same suit bonus
+  const sameSuit = suits.every(s => s === suits[0]);
+  if (sameSuit) return 0.9;
+
+  // Sequential values in same suit
+  const sortedVals = [...values].sort((a, b) => a - b);
+  let sequential = true;
+  for (let i = 1; i < sortedVals.length; i++) {
+    if (sortedVals[i] - sortedVals[i-1] !== 1) {
+      sequential = false;
+      break;
+    }
+  }
+  if (sequential && sameSuit) return 0.95;
+  if (sequential) return 0.7;
+
+  // Same rank
+  const sameRank = values.every(v => v === values[0]);
+  if (sameRank) return 0.85;
+
+  // Check for pairs
+  const valueCounts = {};
+  values.forEach(v => valueCounts[v] = (valueCounts[v] || 0) + 1);
+  const hasPair = Object.values(valueCounts).some(c => c >= 2);
+  if (hasPair) return 0.5;
+
+  return 0.3;
+}
+
+function updateUltimateUI() {
+  const u = gameState.ultimate;
+
+  // Update Z-level meter
+  document.getElementById('zLevelValue').textContent = `${Math.round(u.zLevel)}%`;
+  const zFill = document.getElementById('zMeterFill');
+  zFill.style.width = `${u.zLevel}%`;
+  zFill.classList.toggle('critical', u.zLevel >= u.zCritical);
+
+  // Update charge bar
+  document.getElementById('ultimateChargeFill').style.width = `${u.charge}%`;
+  document.getElementById('ultimateChargeFill').classList.toggle('full', u.charge >= 100);
+
+  // Update status text
+  const statusEl = document.getElementById('ultimateStatus');
+  if (u.ready) {
+    statusEl.textContent = 'READY!';
+    statusEl.classList.add('ready');
+  } else if (u.zLevel >= u.zCritical) {
+    statusEl.textContent = `${Math.round(u.charge)}%`;
+    statusEl.classList.remove('ready');
+  } else {
+    statusEl.textContent = 'Z too low';
+    statusEl.classList.remove('ready');
+  }
+
+  // Show/hide Ultimate buttons
+  document.getElementById('ultimateButtons').style.display = u.ready ? 'flex' : 'none';
+
+  // Update active effects display
+  const effectsContainer = document.getElementById('activeEffects');
+  const badgesContainer = document.getElementById('effectBadges');
+
+  if (u.activeBoost || u.activeDebuff) {
+    effectsContainer.style.display = 'block';
+    let badges = '';
+
+    if (u.activeBoost) {
+      badges += `<span class="effect-badge boost">${suitSymbols[u.activeBoost.suit]} +50% (${u.activeBoost.turns})</span>`;
+    }
+    if (u.activeDebuff) {
+      badges += `<span class="effect-badge debuff">${suitSymbols[u.activeDebuff.suit]} -30% (${u.activeDebuff.turns})</span>`;
+    }
+
+    badgesContainer.innerHTML = badges;
+  } else {
+    effectsContainer.style.display = 'none';
+  }
+}
+
+function showColorSelect(type) {
+  gameState.ultimate.pendingType = type;
+
+  const modal = document.getElementById('colorSelectModal');
+  const title = document.getElementById('colorSelectTitle');
+  const desc = document.getElementById('colorSelectDesc');
+
+  if (type === 'boost') {
+    title.textContent = '⚡ Select Color to BOOST';
+    desc.textContent = 'All cards of this color will score +50% for 2 turns!';
+  } else {
+    title.textContent = '💀 Select Color to DEBUFF';
+    desc.textContent = 'Opponent\'s cards of this color will score -30% for 2 turns!';
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function selectUltimateTarget(suit) {
+  const u = gameState.ultimate;
+  const type = u.pendingType;
+
+  if (type === 'boost') {
+    u.activeBoost = { suit: suit, turns: 2 };
+  } else {
+    u.activeDebuff = { suit: suit, turns: 2 };
+  }
+
+  // Consume Ultimate charge
+  u.charge = 0;
+  u.ready = false;
+  u.pendingType = null;
+
+  document.getElementById('colorSelectModal').classList.add('hidden');
+  updateUltimateUI();
+
+  // Show notification
+  const suitName = {S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs'}[suit];
+  const action = type === 'boost' ? 'BOOSTED +50%' : 'DEBUFFED -30%';
+  alert(`ULTIMATE ACTIVATED!\n\n${suitSymbols[suit]} ${suitName} ${action} for 2 turns!`);
+}
+
+function cancelColorSelect() {
+  gameState.ultimate.pendingType = null;
+  document.getElementById('colorSelectModal').classList.add('hidden');
+}
+
+// Apply Ultimate multiplier to score
+function getUltimateMultiplier(cards) {
+  const u = gameState.ultimate;
+  let multiplier = 1.0;
+
+  if (u.activeBoost) {
+    const boostedCards = cards.filter(c => c.suit === u.activeBoost.suit);
+    if (boostedCards.length > 0) {
+      // Apply 1.5x multiplier proportionally
+      const boostRatio = boostedCards.length / cards.length;
+      multiplier *= 1 + (0.5 * boostRatio);
+    }
+  }
+
+  // Note: debuff would affect opponent's score, not ours
+  // This is tracked for display purposes
+
+  return multiplier;
+}
+
+// Reset Ultimate state for new game
+function resetUltimateState() {
+  gameState.ultimate = {
+    zLevel: 50,
+    zCritical: 85.8,
+    charge: 0,
+    ready: false,
+    pendingType: null,
+    activeBoost: null,
+    activeDebuff: null,
+  };
+  updateUltimateUI();
+}
 </script>

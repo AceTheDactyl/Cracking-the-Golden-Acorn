@@ -8,6 +8,12 @@ Mathematical Foundation:
 - 4D tesseract coordinates for spatial mechanics
 - Kuramoto synchronization for resonance
 - Coupling network for chain bonuses
+- TRIAD harmonic substrates for phase transition mechanics
+
+TRIAD Integration:
+- Three harmonic modes (APEX, CENTER, ORIGIN) create rock-paper-scissors dynamics
+- Phase transitions at z_critical grant power spikes
+- Coherence-based multipliers reward synchronized play
 """
 
 import json
@@ -18,6 +24,45 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple, Callable
 from collections import defaultdict
 from pathlib import Path
+
+# Import TRIAD substrate
+try:
+    from triad_substrate import (
+        TriadGameIntegration, TriadMember, TriadState,
+        get_card_triad, calculate_triad_bonus,
+        calculate_cross_triad_modifier, calculate_coherence_multiplier,
+        TRIAD_ABILITIES, get_available_abilities,
+        Z_CRITICAL, COHERENCE_STRONG
+    )
+    TRIAD_ENABLED = True
+except ImportError:
+    TRIAD_ENABLED = False
+    print("Warning: TRIAD substrate not available, running in legacy mode")
+
+# Import Free Energy substrate for Ultimate mechanics
+try:
+    from free_energy_substrate import (
+        FreeEnergyIntegration, UltimateType, ColorChannel,
+        Z_CRITICAL as FE_Z_CRITICAL, BOOST_MULTIPLIER, DEBUFF_MULTIPLIER
+    )
+    FREE_ENERGY_ENABLED = True
+except ImportError:
+    FREE_ENERGY_ENABLED = False
+    print("Warning: Free Energy substrate not available, Ultimate mechanics disabled")
+
+# Import Grassmannian substrate for APL semantics
+try:
+    from grassmannian import (
+        GrassmannManifold, GrassmannPoint,
+        APLGrassmannBridge, APLPhase, APLState,
+        GrassmannAPLOperators, APLOperator,
+        z_from_points, Z_CRITICAL as GR_Z_CRITICAL
+    )
+    from grassmannian.narrative import GrassmannNarrativeEngine, NarrativeGameIntegration
+    GRASSMANNIAN_ENABLED = True
+except ImportError:
+    GRASSMANNIAN_ENABLED = False
+    print("Warning: Grassmannian substrate not available, APL semantics disabled")
 
 # Import from generator if available, otherwise define locally
 try:
@@ -381,22 +426,34 @@ class ScoreBreakdown:
     chain: int = 0
     resonance: int = 0
     faction: int = 0
-    
+    triad: int = 0                    # TRIAD synergy bonus
+    triad_multiplier: float = 1.0     # Coherence-based multiplier
+    ultimate_multiplier: float = 1.0  # Ultimate boost/debuff modifier
+
     @property
     def total(self) -> int:
-        return self.base + self.cluster + self.chain + self.resonance + self.faction
+        subtotal = self.base + self.cluster + self.chain + self.resonance + self.faction + self.triad
+        return int(subtotal * self.triad_multiplier * self.ultimate_multiplier)
 
 
-def calculate_full_score(cards: List[Card], faction: 'Faction', 
-                         field_state: 'FieldState') -> ScoreBreakdown:
+def calculate_full_score(cards: List[Card], faction: 'Faction',
+                         field_state: 'FieldState',
+                         triad_state: Optional['TriadState'] = None) -> ScoreBreakdown:
     """Calculate complete score breakdown for a formation."""
-    return ScoreBreakdown(
+    breakdown = ScoreBreakdown(
         base=calculate_base_score(cards),
         cluster=calculate_cluster_bonus(cards),
         chain=calculate_chain_bonus(cards),
         resonance=calculate_resonance_bonus(cards),
         faction=faction.calculate_bonus(cards, field_state),
     )
+
+    # Add TRIAD scoring if enabled and state available
+    if TRIAD_ENABLED and triad_state is not None:
+        breakdown.triad = calculate_triad_bonus(cards, triad_state)
+        breakdown.triad_multiplier = calculate_coherence_multiplier(cards, triad_state)
+
+    return breakdown
 
 
 # =============================================================================
@@ -643,15 +700,27 @@ class GameState:
     phase: TurnPhase = TurnPhase.DRAW
     game_field: FieldState = None  # Renamed from 'field' to avoid conflict
     current_formation: List[Card] = None
-    
+
     # Temporary turn modifiers
     valence_multiplier: float = 1.0
     arousal_multiplier: float = 1.0
     score_protected: bool = False
-    
+
+    # TRIAD integration
+    triad_integration: 'TriadGameIntegration' = None
+    triad_events: List[Dict] = None  # Events from TRIAD phase transitions
+
+    # Free Energy / Ultimate integration
+    free_energy_integration: 'FreeEnergyIntegration' = None
+    ultimate_events: List[Dict] = None  # Events from Ultimate mechanics
+
+    # Grassmannian / APL semantics integration
+    grassmannian_integration: 'NarrativeGameIntegration' = None
+    narrative_events: List[Dict] = None  # Events from narrative engine
+
     # Event handlers
     _event_handlers: Dict[GameEvent, List[Callable]] = None
-    
+
     def __post_init__(self):
         if self.game_field is None:
             self.game_field = FieldState()
@@ -659,7 +728,59 @@ class GameState:
             self.current_formation = []
         if self._event_handlers is None:
             self._event_handlers = defaultdict(list)
-    
+        if self.triad_events is None:
+            self.triad_events = []
+        if self.ultimate_events is None:
+            self.ultimate_events = []
+        if self.narrative_events is None:
+            self.narrative_events = []
+        # Initialize TRIAD integration if available
+        if TRIAD_ENABLED and self.triad_integration is None:
+            self.triad_integration = TriadGameIntegration()
+        # Initialize Free Energy integration if available
+        if FREE_ENERGY_ENABLED and self.free_energy_integration is None:
+            self.free_energy_integration = FreeEnergyIntegration()
+        # Initialize Grassmannian/narrative integration if available
+        if GRASSMANNIAN_ENABLED and self.grassmannian_integration is None:
+            narrative_engine = GrassmannNarrativeEngine(n=9, k=3, enforce_n0=True)
+            self.grassmannian_integration = NarrativeGameIntegration(narrative_engine)
+
+    @property
+    def triad_state(self) -> Optional['TriadState']:
+        """Get current TRIAD state if available."""
+        if self.triad_integration:
+            return self.triad_integration.get_triad_state()
+        return None
+
+    @property
+    def free_energy_state(self) -> Optional[Dict]:
+        """Get current Free Energy state for current player if available."""
+        if self.free_energy_integration:
+            return self.free_energy_integration.get_state(self.current_player.name)
+        return None
+
+    @property
+    def ultimate_ready(self) -> bool:
+        """Check if current player has Ultimate ready."""
+        if self.free_energy_integration:
+            state = self.free_energy_integration.get_state(self.current_player.name)
+            return state.get('ultimate_ready', False)
+        return False
+
+    @property
+    def narrative_state(self) -> Optional[Dict]:
+        """Get current narrative/APL state if available."""
+        if self.grassmannian_integration:
+            return self.grassmannian_integration.get_narrative_summary()
+        return None
+
+    @property
+    def apl_phase(self) -> Optional[str]:
+        """Get current APL consciousness phase."""
+        if self.grassmannian_integration and self.grassmannian_integration.engine.state:
+            return self.grassmannian_integration.engine.state.apl_state.phase.name
+        return None
+
     @property
     def current_player(self) -> Player:
         return self.players[self.current_player_idx]
@@ -728,43 +849,53 @@ class GameState:
 # =============================================================================
 
 class GameEngine:
-    """Main game controller."""
-    
+    """Main game controller with TRIAD harmonic integration."""
+
     def __init__(self):
         self.state: Optional[GameState] = None
-    
+
     def setup(self, player_names: List[str], faction_names: List[str],
               decks: Optional[List[List[str]]] = None) -> None:
-        """Initialize a new game."""
+        """Initialize a new game with TRIAD substrate."""
         if len(player_names) != len(faction_names):
             raise ValueError("Must have same number of players and factions")
-        
+
         players = []
         for i, (name, faction_name) in enumerate(zip(player_names, faction_names)):
             faction_class = FACTIONS.get(faction_name.lower())
             if not faction_class:
                 raise ValueError(f"Unknown faction: {faction_name}")
-            
+
             faction = faction_class()
             player = Player(name=name, faction=faction)
-            
+
             # Build deck
             if decks and i < len(decks):
                 player.deck = [create_card(cid) for cid in decks[i]]
             else:
                 player.deck = self._generate_default_deck(faction)
-            
+
             random.shuffle(player.deck)
             players.append(player)
-        
+
         self.state = GameState(players=players)
-        
+
         # Initial draw
         for player in self.state.players:
             player.draw(DECK_RULES['starting_hand'])
-        
+
+        # Initialize TRIAD state with starting hands
+        if TRIAD_ENABLED and self.state.triad_integration:
+            all_cards = []
+            for p in self.state.players:
+                all_cards.extend(p.hand)
+            self.state.triad_integration.on_cards_played(all_cards, [], 0)
+
         self.state.emit_event(GameEvent.GAME_STARTED, {
             'players': [p.name for p in players],
+            'triad_enabled': TRIAD_ENABLED,
+            'free_energy_enabled': FREE_ENERGY_ENABLED,
+            'grassmannian_enabled': GRASSMANNIAN_ENABLED,
         })
     
     def _generate_default_deck(self, faction: Faction) -> List[Card]:
@@ -801,62 +932,204 @@ class GameEngine:
         return drawn
     
     def play_cards(self, cards: List[Card]) -> bool:
-        """Play cards from hand to formation."""
+        """Play cards from hand to formation, updating TRIAD state."""
         if self.state.phase != TurnPhase.MAIN:
             raise ValueError("Not in main phase")
-        
+
         player = self.state.current_player
-        
+
         # Validate cards are in hand and not locked
         for card in cards:
             if card not in player.hand:
                 return False
             if card.card_id in self.state.game_field.locked_cards:
                 return False
-        
+
         # Move to formation
         for card in cards:
             player.hand.remove(card)
             self.state.current_formation.append(card)
-            
+
             # Trigger passive abilities
             player.faction.on_card_played(card, self.state)
-            
+
             self.state.emit_event(GameEvent.CARD_PLAYED, {
                 'player': player.name,
                 'card': card.card_id,
             })
-        
+
+        # Update TRIAD state with played cards
+        if TRIAD_ENABLED and self.state.triad_integration:
+            # Gather all active cards (formation + hands)
+            all_active = list(self.state.current_formation)
+            for p in self.state.players:
+                all_active.extend(p.hand)
+
+            # Update TRIAD and capture events
+            triad_events = self.state.triad_integration.on_cards_played(
+                all_active, cards, self.state.turn_number
+            )
+
+            # Store and emit TRIAD events
+            if triad_events:
+                self.state.triad_events.extend([
+                    {'turn': self.state.turn_number, **triad_events}
+                ])
+
+                # Emit special events for phase transitions
+                for event_name, event_data in triad_events.items():
+                    if 'activated' in event_name:
+                        self.state.emit_event(GameEvent.ABILITY_ACTIVATED, {
+                            'type': 'triad_phase_transition',
+                            'triad': event_name.replace('_activated', ''),
+                            **event_data,
+                        })
+
+        # Update Free Energy state with played cards
+        if FREE_ENERGY_ENABLED and self.state.free_energy_integration:
+            fe_events = self.state.free_energy_integration.on_cards_played(
+                player.name, cards
+            )
+
+            # Store and emit Ultimate events
+            if fe_events:
+                self.state.ultimate_events.extend([
+                    {'turn': self.state.turn_number, 'player': player.name, **fe_events}
+                ])
+
+                # Emit special events for phase transitions and Ultimate ready
+                if 'phase_transition' in fe_events:
+                    self.state.emit_event(GameEvent.ABILITY_ACTIVATED, {
+                        'type': 'phase_transition',
+                        'z_level': fe_events['phase_transition'].get('z_level'),
+                    })
+
+                if 'ultimate_ready' in fe_events:
+                    self.state.emit_event(GameEvent.ABILITY_ACTIVATED, {
+                        'type': 'ultimate_ready',
+                        'player': player.name,
+                        'charge': fe_events['ultimate_ready'].get('charge'),
+                    })
+
+        # Update Grassmannian/narrative state
+        if GRASSMANNIAN_ENABLED and self.state.grassmannian_integration:
+            narrative_beat = self.state.grassmannian_integration.on_turn_start(self.state.turn_number)
+
+            if narrative_beat:
+                self.state.narrative_events.append({
+                    'turn': self.state.turn_number,
+                    'beat_index': narrative_beat.index,
+                    'operator': narrative_beat.operator.value,
+                    'z_level': narrative_beat.z_level,
+                    'apl_phase': narrative_beat.apl_phase.name,
+                    'narrative_phase': narrative_beat.narrative_phase.name,
+                    'is_transition': narrative_beat.is_transition,
+                })
+
+                # Emit event for phase transitions
+                if narrative_beat.is_transition:
+                    self.state.emit_event(GameEvent.ABILITY_ACTIVATED, {
+                        'type': 'narrative_transition',
+                        'player': player.name,
+                        'apl_phase': narrative_beat.apl_phase.name,
+                        'z_level': narrative_beat.z_level,
+                    })
+
         return True
     
     def calculate_score(self) -> ScoreBreakdown:
-        """Calculate score for current formation."""
+        """Calculate score for current formation with TRIAD and Ultimate bonuses."""
         if self.state.phase != TurnPhase.RESONANCE:
             raise ValueError("Not in resonance phase")
-        
+
         cards = self.state.current_formation
         player = self.state.current_player
-        
-        breakdown = calculate_full_score(cards, player.faction, self.state.game_field)
-        
-        # Apply multipliers
-        # (Would modify breakdown based on state multipliers)
-        
+        opponent = self.state.opponent
+
+        # Calculate score with TRIAD state
+        breakdown = calculate_full_score(
+            cards, player.faction, self.state.game_field, self.state.triad_state
+        )
+
+        # Apply TRIAD cross-matchup modifier if opponent has cards in play
+        if TRIAD_ENABLED and self.state.triad_integration:
+            opponent_cards = opponent.hand[:3] if opponent.hand else []  # Approximate
+            cross_modifier = calculate_cross_triad_modifier(cards, opponent_cards)
+            if cross_modifier != 1.0:
+                # Apply cross-TRIAD modifier to total
+                original_total = breakdown.total
+                adjusted_total = int(original_total * cross_modifier)
+                # Store modifier info for display
+                breakdown.triad_multiplier *= cross_modifier
+
+        # Apply Ultimate modifiers (boost/debuff)
+        if FREE_ENERGY_ENABLED and self.state.free_energy_integration:
+            ultimate_multiplier = 1.0
+            for card in cards:
+                # Get modifier for this card's suit (considers boosts and debuffs)
+                card_modifier = self.state.free_energy_integration.get_score_modifier(
+                    player.name, card.suit, opponent.name
+                )
+                # Average the modifier across all cards
+                ultimate_multiplier *= card_modifier ** (1.0 / len(cards))
+
+            if ultimate_multiplier != 1.0:
+                breakdown.ultimate_multiplier = ultimate_multiplier
+
         # Record resonance for Hearts drain
         player.last_resonance_bonus = breakdown.resonance
-        
+
         # Add to score
         player.score += breakdown.total
-        
-        self.state.emit_event(GameEvent.SCORE_CHANGED, {
+
+        # Build event data
+        event_data = {
             'player': player.name,
-            'breakdown': breakdown,
+            'breakdown': {
+                'base': breakdown.base,
+                'cluster': breakdown.cluster,
+                'chain': breakdown.chain,
+                'resonance': breakdown.resonance,
+                'faction': breakdown.faction,
+                'triad': breakdown.triad,
+                'triad_multiplier': breakdown.triad_multiplier,
+                'ultimate_multiplier': breakdown.ultimate_multiplier,
+                'total': breakdown.total,
+            },
             'new_score': player.score,
-        })
-        
+        }
+
+        # Add TRIAD state info if available
+        if self.state.triad_state:
+            event_data['triad_state'] = {
+                'dominant': self.state.triad_state.dominant_triad.value if self.state.triad_state.dominant_triad else None,
+                'global_coherence': self.state.triad_state.global_coherence,
+            }
+
+        # Add Free Energy state info if available
+        if self.state.free_energy_state:
+            event_data['free_energy_state'] = {
+                'z_level': self.state.free_energy_state.get('z_level'),
+                'ultimate_charge': self.state.free_energy_state.get('ultimate_charge'),
+                'ultimate_ready': self.state.free_energy_state.get('ultimate_ready'),
+            }
+
+        # Add Grassmannian/narrative state info and bonus
+        if GRASSMANNIAN_ENABLED and self.state.grassmannian_integration:
+            narrative_bonus = self.state.grassmannian_integration.get_narrative_bonus(self.state.turn_number)
+            if narrative_bonus > 0:
+                player.score += narrative_bonus
+                event_data['narrative_bonus'] = narrative_bonus
+
+            narrative_state = self.state.narrative_state
+            if narrative_state:
+                event_data['narrative_state'] = narrative_state
+
+        self.state.emit_event(GameEvent.SCORE_CHANGED, event_data)
+
         # Move formation to discard
         player.discard.extend(self.state.current_formation)
-        
+
         return breakdown
     
     def enforce_hand_limit(self) -> List[Card]:
@@ -920,22 +1193,196 @@ class GameEngine:
         """Get all valid card combinations from current hand."""
         hand = self.state.current_player.hand
         valid = []
-        
+
         # Single cards
         for card in hand:
             if card.card_id not in self.state.game_field.locked_cards:
                 valid.append([card])
-        
+
         # Pairs
         for i, card1 in enumerate(hand):
             for card2 in hand[i+1:]:
                 if (card1.card_id not in self.state.game_field.locked_cards and
                     card2.card_id not in self.state.game_field.locked_cards):
                     valid.append([card1, card2])
-        
+
         # Could extend to larger combinations...
-        
+
         return valid
+
+    def activate_triad_ability(self, ability_name: str,
+                                discard_cards: Optional[List[Card]] = None) -> Tuple[bool, str, int]:
+        """
+        Activate a TRIAD ability.
+
+        Returns (success, message, bonus_points)
+        """
+        if not TRIAD_ENABLED or not self.state.triad_integration:
+            return False, "TRIAD not enabled", 0
+
+        player = self.state.current_player
+
+        success, msg, bonus = self.state.triad_integration.activate_ability(
+            player.name, ability_name, discard_cards
+        )
+
+        if success:
+            # Discard cost cards
+            if discard_cards:
+                player.discard_cards(discard_cards)
+
+            # Add bonus points
+            if bonus > 0:
+                player.score += bonus
+
+            self.state.emit_event(GameEvent.ABILITY_ACTIVATED, {
+                'player': player.name,
+                'ability': ability_name,
+                'type': 'triad',
+                'bonus': bonus,
+            })
+
+        return success, msg, bonus
+
+    def get_available_triad_abilities(self) -> List:
+        """Get TRIAD abilities available to current player."""
+        if not TRIAD_ENABLED or not self.state.triad_integration:
+            return []
+
+        player = self.state.current_player
+        cooldowns = self.state.triad_integration.player_cooldowns.get(player.name, {})
+
+        return get_available_abilities(
+            self.state.triad_state,
+            player.hand,
+            cooldowns
+        )
+
+    def get_triad_summary(self) -> Dict:
+        """Get summary of current TRIAD state for display."""
+        if not TRIAD_ENABLED or not self.state.triad_state:
+            return {'enabled': False}
+
+        state = self.state.triad_state
+        return {
+            'enabled': True,
+            'dominant': state.dominant_triad.value if state.dominant_triad else None,
+            'global_coherence': round(state.global_coherence, 3),
+            'apex': {
+                'coherence': round(state.apex.coherence, 3),
+                'z_level': round(state.apex.z_level, 3),
+                'activated': state.apex.is_activated,
+                'charge': round(state.apex.resonance_charge, 2),
+                'burst_ready': state.apex.burst_ready,
+            },
+            'center': {
+                'coherence': round(state.center.coherence, 3),
+                'z_level': round(state.center.z_level, 3),
+                'activated': state.center.is_activated,
+                'charge': round(state.center.resonance_charge, 2),
+                'burst_ready': state.center.burst_ready,
+            },
+            'origin': {
+                'coherence': round(state.origin.coherence, 3),
+                'z_level': round(state.origin.z_level, 3),
+                'activated': state.origin.is_activated,
+                'charge': round(state.origin.resonance_charge, 2),
+                'burst_ready': state.origin.burst_ready,
+            },
+        }
+
+    def activate_ultimate(
+        self,
+        ultimate_type: str,  # "boost" or "debuff"
+        target_suit: str     # "S", "H", "D", or "C"
+    ) -> Tuple[bool, str]:
+        """
+        Activate Ultimate ability for current player.
+
+        Args:
+            ultimate_type: "boost" for +50% to color, "debuff" for -30% to opponent color
+            target_suit: The suit/color to target (S, H, D, C)
+
+        Returns:
+            (success, message)
+        """
+        if not FREE_ENERGY_ENABLED or not self.state.free_energy_integration:
+            return False, "Ultimate system not available"
+
+        player = self.state.current_player
+
+        success, msg = self.state.free_energy_integration.activate_ultimate(
+            player.name, ultimate_type, target_suit
+        )
+
+        if success:
+            self.state.emit_event(GameEvent.ABILITY_ACTIVATED, {
+                'type': 'ultimate',
+                'player': player.name,
+                'ultimate_type': ultimate_type,
+                'target_suit': target_suit,
+            })
+
+        return success, msg
+
+    def get_ultimate_summary(self) -> Dict:
+        """Get summary of current Ultimate/Free Energy state for display."""
+        if not FREE_ENERGY_ENABLED or not self.state.free_energy_integration:
+            return {'enabled': False}
+
+        player = self.state.current_player
+        ui_data = self.state.free_energy_integration.get_ui_data(player.name)
+
+        return {
+            'enabled': True,
+            'z_level': ui_data['z_level'],
+            'z_critical': ui_data['z_critical'],
+            'is_critical': ui_data['is_critical'],
+            'ultimate_charge': ui_data['ultimate_charge'],
+            'ultimate_ready': ui_data['ultimate_ready'],
+            'coherence': ui_data['coherence'],
+            'free_energy': ui_data['free_energy'],
+            'active_boost': ui_data['active_boost'],
+            'active_debuff': ui_data['active_debuff'],
+            'boost_turns': ui_data['boost_turns'],
+            'debuff_turns': ui_data['debuff_turns'],
+        }
+
+    def get_ultimate_options(self) -> List[Dict]:
+        """Get available Ultimate abilities if ready."""
+        if not self.state.ultimate_ready:
+            return []
+
+        return [
+            {
+                'type': 'boost',
+                'name': 'Color Boost',
+                'description': '+50% score for chosen color for 2 turns',
+                'targets': ['S', 'H', 'D', 'C'],
+            },
+            {
+                'type': 'debuff',
+                'name': 'Color Debuff',
+                'description': '-30% score for opponent\'s chosen color for 2 turns',
+                'targets': ['S', 'H', 'D', 'C'],
+            },
+        ]
+
+    def get_narrative_summary(self) -> Dict:
+        """Get summary of current narrative/APL state for display."""
+        if not GRASSMANNIAN_ENABLED or not self.state.grassmannian_integration:
+            return {'enabled': False}
+
+        summary = self.state.grassmannian_integration.get_narrative_summary()
+        summary['enabled'] = True
+        return summary
+
+    def get_narrative_arc(self) -> Dict:
+        """Get full narrative arc analysis."""
+        if not GRASSMANNIAN_ENABLED or not self.state.grassmannian_integration:
+            return {'enabled': False}
+
+        return self.state.grassmannian_integration.engine.get_narrative_arc()
 
 
 # =============================================================================
@@ -943,69 +1390,171 @@ class GameEngine:
 # =============================================================================
 
 def main():
-    """Simple CLI game loop for testing."""
+    """CLI game loop with TRIAD integration."""
     import argparse
-    
-    parser = argparse.ArgumentParser(description='Quantum Resonance Game Engine')
+
+    parser = argparse.ArgumentParser(description='Quantum Resonance Game Engine with TRIAD')
     parser.add_argument('--players', type=int, default=2, help='Number of players')
     parser.add_argument('--faction1', type=str, default='spades')
     parser.add_argument('--faction2', type=str, default='hearts')
-    
+    parser.add_argument('--verbose', '-v', action='store_true', help='Show TRIAD details')
+
     args = parser.parse_args()
-    
+
     engine = GameEngine()
     engine.setup(
         player_names=['Player 1', 'Player 2'],
         faction_names=[args.faction1, args.faction2],
     )
-    
-    print("Game started!")
+
+    print("=" * 60)
+    print("QUANTUM RESONANCE - UNIFIED SUBSTRATE")
+    print("=" * 60)
     print(f"Player 1 ({args.faction1}) vs Player 2 ({args.faction2})")
-    print("-" * 40)
-    
+    print(f"TRIAD System: {'ENABLED' if TRIAD_ENABLED else 'DISABLED'}")
+    print(f"Ultimate System: {'ENABLED' if FREE_ENERGY_ENABLED else 'DISABLED'}")
+    print(f"Grassmannian/APL: {'ENABLED' if GRASSMANNIAN_ENABLED else 'DISABLED'}")
+    print("-" * 60)
+
     # Simple auto-play loop
     while True:
         player = engine.state.current_player
-        print(f"\nTurn {engine.state.turn_number}: {player.name}'s turn")
+
+        print(f"\n{'='*60}")
+        print(f"Turn {engine.state.turn_number}: {player.name}'s turn")
         print(f"Score: {player.score}")
         print(f"Hand: {[c.card_id for c in player.hand]}")
-        
+
+        # Show TRIAD state if verbose
+        if args.verbose and TRIAD_ENABLED:
+            triad_summary = engine.get_triad_summary()
+            if triad_summary.get('enabled'):
+                print(f"\nTRIAD State:")
+                print(f"  Dominant: {triad_summary['dominant'] or 'None'}")
+                print(f"  Global Coherence: {triad_summary['global_coherence']:.3f}")
+                for name in ['apex', 'center', 'origin']:
+                    t = triad_summary[name]
+                    status = 'ACTIVATED' if t['activated'] else 'dormant'
+                    burst = ' [BURST READY]' if t['burst_ready'] else ''
+                    print(f"  {name.upper()}: R={t['coherence']:.2f} z={t['z_level']:.2f} "
+                          f"charge={t['charge']:.0%} ({status}){burst}")
+
+        # Show Ultimate state if verbose
+        if args.verbose and FREE_ENERGY_ENABLED:
+            ultimate_summary = engine.get_ultimate_summary()
+            if ultimate_summary.get('enabled'):
+                print(f"\nUltimate State:")
+                critical_marker = ' [CRITICAL]' if ultimate_summary['is_critical'] else ''
+                ready_marker = ' >>> ULTIMATE READY <<<' if ultimate_summary['ultimate_ready'] else ''
+                print(f"  Z-Level: {ultimate_summary['z_level']}% (critical: {ultimate_summary['z_critical']}%){critical_marker}")
+                print(f"  Charge: {ultimate_summary['ultimate_charge']}%{ready_marker}")
+                print(f"  Coherence: {ultimate_summary['coherence']}%")
+                if ultimate_summary['active_boost']:
+                    print(f"  ACTIVE BOOST: {ultimate_summary['active_boost']} (+50%) [{ultimate_summary['boost_turns']} turns]")
+                if ultimate_summary['active_debuff']:
+                    print(f"  ACTIVE DEBUFF: {ultimate_summary['active_debuff']} (-30%) [{ultimate_summary['debuff_turns']} turns]")
+
+        # Show Narrative/APL state if verbose
+        if args.verbose and GRASSMANNIAN_ENABLED:
+            narrative_summary = engine.get_narrative_summary()
+            if narrative_summary.get('enabled') and narrative_summary.get('active'):
+                print(f"\nNarrative State:")
+                print(f"  Beat: {narrative_summary.get('beat', 0)}/32")
+                print(f"  Narrative Phase: {narrative_summary.get('narrative_phase', 'SETUP')}")
+                print(f"  APL Phase: {narrative_summary.get('apl_phase', 'VOID')}")
+                print(f"  Z-Level: {narrative_summary.get('z_level', 0):.3f}")
+                critical = ' [CRITICAL]' if narrative_summary.get('is_critical') else ''
+                print(f"  Progress: {narrative_summary.get('progress', 0):.1f}%{critical}")
+                print(f"  Transitions: {narrative_summary.get('transitions', 0)}")
+
         # Draw phase
         if engine.state.phase == TurnPhase.DRAW:
             drawn = engine.execute_draw()
             print(f"Drew: {[c.card_id for c in drawn]}")
-        
-        # Main phase - play first 3 cards
+
+        # Main phase - play first 3 cards (prioritize TRIAD synergy)
         cards_to_play = player.hand[:min(3, len(player.hand))]
+
+        # Try to find TRIAD synergy
+        if TRIAD_ENABLED and len(player.hand) >= 3:
+            # Group cards by TRIAD
+            triad_groups = {t: [] for t in TriadMember}
+            for card in player.hand:
+                triad = get_card_triad(card)
+                if triad:
+                    triad_groups[triad].append(card)
+
+            # Pick best TRIAD group if available
+            for triad, cards in triad_groups.items():
+                if len(cards) >= 3:
+                    cards_to_play = cards[:3]
+                    break
+            else:
+                # Try for 2 of same TRIAD + 1 other
+                for triad, cards in triad_groups.items():
+                    if len(cards) >= 2:
+                        remaining = [c for c in player.hand if c not in cards]
+                        if remaining:
+                            cards_to_play = cards[:2] + [remaining[0]]
+                            break
+
         engine.play_cards(cards_to_play)
-        print(f"Played: {[c.card_id for c in cards_to_play]}")
-        
+
+        # Show which TRIADs were played
+        played_triads = set()
+        for card in cards_to_play:
+            if TRIAD_ENABLED:
+                t = get_card_triad(card)
+                if t:
+                    played_triads.add(t.value)
+
+        triad_info = f" ({', '.join(played_triads)})" if played_triads else ""
+        print(f"Played: {[c.card_id for c in cards_to_play]}{triad_info}")
+
         # Advance to Resonance
         engine.state.advance_phase()
-        
+
         # Resonance phase
         breakdown = engine.calculate_score()
-        print(f"Score breakdown: Base={breakdown.base}, Cluster={breakdown.cluster}, "
-              f"Chain={breakdown.chain}, Resonance={breakdown.resonance}, "
-              f"Faction={breakdown.faction} = {breakdown.total}")
-        
+        print(f"\nScore breakdown:")
+        print(f"  Base: {breakdown.base}")
+        print(f"  Cluster: {breakdown.cluster}")
+        print(f"  Chain: {breakdown.chain}")
+        print(f"  Resonance: {breakdown.resonance}")
+        print(f"  Faction: {breakdown.faction}")
+        if TRIAD_ENABLED:
+            print(f"  TRIAD: {breakdown.triad}")
+            print(f"  TRIAD Multiplier: {breakdown.triad_multiplier:.2f}x")
+        if FREE_ENERGY_ENABLED and breakdown.ultimate_multiplier != 1.0:
+            print(f"  Ultimate Multiplier: {breakdown.ultimate_multiplier:.2f}x")
+        print(f"  TOTAL: {breakdown.total}")
+
         # Advance to Discard
         engine.state.advance_phase()
-        
+
         # Discard phase
         engine.enforce_hand_limit()
-        
+
         # Advance to End
         engine.state.advance_phase()
-        
+
         # End turn
         winner = engine.end_turn()
-        
+
         if winner:
-            print(f"\n{'='*40}")
+            print(f"\n{'='*60}")
             print(f"WINNER: {winner.name} with {winner.score} points!")
+            print("=" * 60)
+
+            # Final TRIAD stats
+            if TRIAD_ENABLED and args.verbose:
+                print("\nFinal TRIAD Summary:")
+                triad_summary = engine.get_triad_summary()
+                for name in ['apex', 'center', 'origin']:
+                    t = triad_summary[name]
+                    print(f"  {name.upper()}: Activated={t['activated']}")
             break
-        
+
         if engine.state.turn_number > 50:  # Safety limit
             print("Game timeout!")
             break
